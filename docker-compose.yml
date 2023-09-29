@@ -1,0 +1,87 @@
+version: "3.8"
+
+services:
+    app:
+        build:
+            context: ./
+            dockerfile: Dockerfile
+        image: app/php-app
+        container_name: web
+        working_dir: /var/www/
+        volumes:
+            - ./app:/var/www/
+        restart: unless-stopped
+        depends_on:
+            - redis
+        networks:
+            - my-network
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        environment:
+            UPLOAD_MAX_FILESIZE: 10M
+            UPLOAD_LIMIT: 10M
+            POST_MAX_FILESIZE: 14M
+            PHP_MEMORY_LIMIT: 512M
+
+    nginx:
+        image: nginx:alpine
+        container_name: nginx
+        restart: always
+        ports:
+            - 80:80
+        volumes:
+            - ./app:/var/www
+            - ./config/nginx/:/etc/nginx/conf.d/
+        networks:
+            - my-network
+
+    postgres:
+        image: postgres:14.1-alpine
+        container_name: postgres
+        restart: always
+        ports:
+            - '${DB_PORT}:5432'
+        volumes:
+            - ./.database/postgres:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            POSTGRES_DB: ${DB_DATABASE}
+            PGDATA: /var/lib/postgresql/data/pgdata
+        networks:
+            - my-network
+
+    pgadmin:
+        image: dpage/pgadmin4
+        container_name: pgadmin4
+        environment:
+            PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+            PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+        ports:
+            - "16543:80"
+        networks:
+            - my-network
+
+    redis:
+        image: redis
+        ports:
+            - 6379:6379
+        networks:
+            - my-network
+
+    mailpit:
+        image: axllent/mailpit:latest
+        container_name: mailpit
+        restart: unless-stopped
+        ports:
+            - 1025:1025
+            - 8025:8025
+        networks:
+            - my-network
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+
+networks:
+    my-network:
+        driver: bridge
+
